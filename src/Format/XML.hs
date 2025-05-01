@@ -12,11 +12,16 @@ renderXML (Document hdr blocks) =
 
 -- | Render the <header> (title + optional author/date)
 renderHeader :: Int -> Header -> String
+
+renderHeader lvl (Header title Nothing Nothing) =
+    indent lvl ("<header title=\"" ++ title ++ "\"></header>\n")
+
 renderHeader lvl (Header title mAuthor mDate) =
      indent lvl ("<header title=\"" ++ title ++ "\">\n")
   ++ maybe "" (\a -> indent (lvl+1) ("<author>" ++ a ++ "</author>\n")) mAuthor
   ++ maybe "" (\d -> indent (lvl+1) ("<date>"   ++ d ++ "</date>\n"))   mDate
   ++ indent lvl "</header>\n"
+
 
 -- | Render the <body> and its child blocks
 renderBody :: Int -> [Block] -> String

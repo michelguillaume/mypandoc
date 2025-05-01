@@ -1,0 +1,7 @@
+<document>
+    <header title="InlineCode"></header>
+    <body>
+        <paragraph>Ceci est un <code>inlineCode()</code> dans un paragraphe.</paragraph>
+    </body>
+</document>
+  

@@ -1,0 +1,7 @@
+<document>
+    <header title="Fmt"></header>
+    <body>
+        <paragraph>Du <italic>texte <bold>mixte</bold></italic> ici.</paragraph>
+    </body>
+</document>
+  

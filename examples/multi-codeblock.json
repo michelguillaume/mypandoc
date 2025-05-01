@@ -1,0 +1,17 @@
+{
+    "header": {
+        "title": "MultiCB"
+    },
+    "body": [
+        {
+            "codeblock": [
+                "first"
+            ]
+        },
+        {
+            "codeblock": [
+                "second"
+            ]
+        }
+    ]
+}

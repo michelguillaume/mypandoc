@@ -1,0 +1,12 @@
+<document>
+    <header title="MultiCB"></header>
+    <body>
+        <codeblock>
+            <paragraph>first</paragraph>
+        </codeblock>
+        <codeblock>
+            <paragraph>second</paragraph>
+        </codeblock>
+    </body>
+</document>
+  

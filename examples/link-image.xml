@@ -1,0 +1,7 @@
+<document>
+    <header title="LMix"></header>
+    <body>
+        <paragraph>Voir <link url="u">ici</link> puis <image url="i.png">alt</image>.</paragraph>
+    </body>
+</document>
+  

@@ -1,4 +1,3 @@
--- test/JSONSpec.hs
 module JSONSpec (spec) where
 
 import Test.Hspec

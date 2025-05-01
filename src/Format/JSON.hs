@@ -89,6 +89,9 @@ inlineText = \case
 
 renderValue :: Int -> JValue -> String
 renderValue indent = \case
+  JArray [] ->
+      "[]"
+
   JString s ->
     "\"" ++ escape s ++ "\""
 

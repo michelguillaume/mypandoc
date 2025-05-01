@@ -1,0 +1,15 @@
+{
+    "header": {
+        "title": "Fmt"
+    },
+    "body": [
+        [
+            "Du ",
+            {
+                "italic": "texte mixte"
+            },
+            " ici."
+        ]
+    ]
+}
+  

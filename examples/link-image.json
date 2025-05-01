@@ -1,0 +1,29 @@
+{
+    "header": {
+        "title": "LMix"
+    },
+    "body": [
+        [
+            "Voir ",
+            {
+                "link": {
+                    "url": "u",
+                    "content": [
+                        "ici"
+                    ]
+                }
+            },
+            " puis ",
+            {
+                "image": {
+                    "url": "i.png",
+                    "alt": [
+                        "alt"
+                    ]
+                }
+            },
+            "."
+        ]
+    ]
+}
+  

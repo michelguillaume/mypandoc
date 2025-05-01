@@ -58,4 +58,8 @@ tests:
     dependencies:
     - base
     - hspec
-    - mypandoc  
+    - directory
+    - filepath
+    - process
+    - text
+    - mypandoc

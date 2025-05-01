@@ -1,0 +1,15 @@
+{
+    "header": {
+        "title": "InlineCode"
+    },
+    "body": [
+        [
+            "Ceci est un ",
+            {
+                "code": "inlineCode()"
+            },
+            " dans un paragraphe."
+        ]
+    ]
+}
+  
