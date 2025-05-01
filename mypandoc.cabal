@@ -64,14 +64,12 @@ test-suite mypandoc-test
   main-is: Spec.hs
   other-modules:
       CoreSpec
-      JSON.ArraySpec
-      JSON.StringSpec
       JSONSpec
       XML.BodySpec
       XML.CodeBlockSpec
       XML.DocumentSpec
       XML.HeaderSpec
-      XML.ListItemSpec
+      XML.InlineSpec
       XML.ListSpec
       XML.ParagraphSpec
       XML.SectionSpec

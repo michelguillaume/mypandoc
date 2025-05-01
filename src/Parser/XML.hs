@@ -3,97 +3,149 @@ module Parser.XML
     parseXMLHeader,
     parseXMLBody,
     parseXMLBlock,
-    parseXMLParagraph,
+    parseXMLSection,
     parseXMLCodeBlock,
     parseXMLList,
-    parseXMLListItem,
-    parseXMLSection
+    parseXMLParagraph,
+    parseInline,
   ) where
 
 import Parser.Core
-    ( Parser,
-      satisfy,
-      string,
-      many,
-      choice,
-      spaces,
-      lexeme,
-      parseQuoted )
-import Control.Applicative ((<|>))
 import AST
+import Control.Applicative (optional)
+import Prelude hiding (lines)
 
 -- | Top-level XML Document parser
 parseXMLDocument :: Parser Document
-parseXMLDocument = lexeme (string "<document>") *> do
+parseXMLDocument = spaces *> lexeme (string "<document>") *> do
   hdr  <- parseXMLHeader
   body <- parseXMLBody
   _ <- lexeme (string "</document>")
   return (Document hdr body)
 
--- | Parse XML <header title="..."></header>
+-- | Parse XML <header> with attributes and optional author/date children
 parseXMLHeader :: Parser Header
 parseXMLHeader = lexeme (string "<header") *> do
   _     <- spaces
-  _     <- string "title="
-  title <- parseQuoted
-  _     <- string "></header>"
-  return (Header title Nothing Nothing)
+  title <- attribute "title"
+  _     <- lexeme (string ">")
+  auth  <- optional (spaces *> string "<author>" *> many (satisfy (/= '<')) <* string "</author>")
+  date  <- optional (spaces *> string "<date>"   *> many (satisfy (/= '<')) <* string "</date>")
+  _ <- lexeme (string "</header>")
+  return (Header title auth date)
+  where
+    attribute name = string (name ++ "=\"") *> many (satisfy (/= '"')) <* char '"'
 
 -- | Parse XML <body> ... </body>
 parseXMLBody :: Parser [Block]
-parseXMLBody = lexeme (string "<body>") *> many (lexeme parseXMLBlock) <* lexeme (string "</body>")
+parseXMLBody = lexeme (string "<body>") *> many parseXMLBlock <* lexeme (string "</body>")
 
--- | Parse any XML block
+-- | Parse any block inside body
 parseXMLBlock :: Parser Block
-parseXMLBlock = choice
-  [ parseXMLParagraph
+parseXMLBlock = lexeme $ choice
+  [ parseXMLSection
   , parseXMLCodeBlock
   , parseXMLList
-  , parseXMLSection
+  , parseXMLParagraph
   ]
 
--- | <paragraph>...</paragraph>
+-- | <paragraph>content</paragraph>
 parseXMLParagraph :: Parser Block
 parseXMLParagraph = do
-  _   <- string "<paragraph>"
-  txt <- many (satisfy (/= '<'))
-  _   <- string "</paragraph>"
-  return (Paragraph [Plain txt])
+  _   <- lexeme (string "<paragraph>")
+  inls <- many parseInline
+  _   <- lexeme (string "</paragraph>")
+  return (Paragraph inls)
 
--- | <codeblock>...</codeblock>
-parseXMLCodeBlock :: Parser Block
-parseXMLCodeBlock = do
-  _    <- string "<codeblock>"
-  code <- many (satisfy (/= '<'))
-  _    <- string "</codeblock>"
-  return (CodeBlock code)
+-- | Inline elements: bold, italic, code, link, image or plain text
+parseInline :: Parser Inline
+parseInline = choice
+  [ parseBold
+  , parseItalic
+  , parseCodeSpan
+  , parseLink
+  , parseImage
+  , parsePlain
+  ]
 
--- | <list type="ordered"> ... </list>
-parseXMLList :: Parser Block
-parseXMLList = do
-  _     <- string "<list"
-  _     <- spaces
-  _     <- string "type="
-  typ   <- parseQuoted
-  _     <- string ">"
-  items <- many parseXMLListItem
-  _     <- string "</list>"
-  let lt = if typ == "ordered" then Ordered else Unordered
-  return (List lt items)
+parsePlain :: Parser Inline
+parsePlain = Plain <$> some (satisfy (/= '<'))
 
--- | <item> ... </item>
-parseXMLListItem :: Parser [Block]
-parseXMLListItem = do
-  _      <- string "<item>"
-  blocks <- many (lexeme parseXMLBlock)
-  _      <- string "</item>"
-  return blocks
+parseBold :: Parser Inline
+parseBold = do
+  _ <- string "<bold>"
+  xs <- many parseInline
+  _ <- string "</bold>"
+  return (Bold xs)
 
--- | <section> optional <title> ... </title> then blocks </section>
+parseItalic :: Parser Inline
+parseItalic = do
+  _ <- string "<italic>"
+  xs <- many parseInline
+  _ <- string "</italic>"
+  return (Italic xs)
+
+parseCodeSpan :: Parser Inline
+parseCodeSpan = do
+  _ <- string "<code>"
+  s <- many (satisfy (/= '<'))
+  _ <- string "</code>"
+  return (CodeSpan s)
+
+parseLink :: Parser Inline
+parseLink = do
+  _   <- string "<link url=\""
+  url <- many (satisfy (/= '"'))
+  _   <- string "\">"
+  xs  <- many parseInline
+  _   <- string "</link>"
+  return (Link url xs)
+
+parseImage :: Parser Inline
+parseImage = do
+  _   <- string "<image url=\""
+  url <- many (satisfy (/= '"'))
+  _   <- string "\">"
+  xs  <- many parseInline
+  _   <- string "</image>"
+  return (Image url xs)
+
+-- | <section title="..."> ... </section>
 parseXMLSection :: Parser Block
 parseXMLSection = do
-  _     <- string "<section>"
-  title <- (string "<title>" *> many (satisfy (/= '<')) <* string "</title>") <|> pure []
-  blocks<- many (lexeme parseXMLBlock)
-  _     <- string "</section>"
-  return (Section (if null title then Nothing else Just title) blocks)
+  _   <- lexeme (string "<section")
+  _   <- spaces
+  title <- optional (string "title=\"" *> many (satisfy (/= '"')) <* char '"')
+  _   <- lexeme (string ">")
+  bs  <- many parseXMLBlock
+  _   <- lexeme (string "</section>")
+  return (Section (maybe "" id title) bs)
+
+-- | <codeblock> containing paragraphs
+parseXMLCodeBlock :: Parser Block
+parseXMLCodeBlock = do
+  _   <- lexeme (string "<codeblock>")
+  ps <- many (lexeme parseXMLParagraph)
+  _   <- lexeme (string "</codeblock>")
+  let lines = [concatMap inlineText inls | Paragraph inls <- ps]
+  return (CodeBlock lines)
+
+-- | <list> of paragraph items
+parseXMLList :: Parser Block
+parseXMLList = do
+  _   <- lexeme (string "<list")
+  _   <- optional (spaces *> string "type=\"" *> many (satisfy (/= '"')) <* char '"')
+  _   <- lexeme (string ">")
+  ps  <- many parseXMLParagraph
+  _   <- lexeme (string "</list>")
+  let items = [inls | Paragraph inls <- ps]
+  return (List items)
+
+-- helper to extract text from Inline
+inlineText :: Inline -> String
+inlineText (Plain s)       = s
+inlineText (Bold xs)       = concatMap inlineText xs
+inlineText (Italic xs)     = concatMap inlineText xs
+inlineText (CodeSpan s)    = s
+inlineText (Link _ xs)     = concatMap inlineText xs
+inlineText (Image _ xs)    = concatMap inlineText xs

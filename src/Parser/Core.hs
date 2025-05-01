@@ -77,7 +77,7 @@ spaces :: Parser String
 spaces = many (satisfy isSpace)
 
 lexeme :: Parser a -> Parser a
-lexeme p = p <* spaces
+lexeme p = spaces *> p <* spaces
 
 -- | Quoted string parser (for XML/JSON attributes)
 parseQuoted :: Parser String

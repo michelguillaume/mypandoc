@@ -3,7 +3,6 @@ module CoreSpec (spec) where
 import Test.Hspec
 import Parser.Core
 
--- helper to run parser on input
 runP :: Parser a -> String -> Maybe (a, String)
 runP = runParser
 

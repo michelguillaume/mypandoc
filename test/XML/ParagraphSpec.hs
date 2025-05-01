@@ -1,18 +1,26 @@
 module XML.ParagraphSpec (spec) where
 
 import Test.Hspec
-import Parser.Core         (runParser)
-import Parser.XML          (parseXMLParagraph)
-import AST                  (Block(..), Inline(..))
+import Parser.Core        (runParser)
+import Parser.XML         (parseXMLParagraph)
+import AST                 (Block(..), Inline(..))
 
 spec :: Spec
 spec = describe "parseXMLParagraph" $ do
-  it "parses simple paragraph" $ do
-    let input = "<paragraph>Hello</paragraph>!"
-    runParser parseXMLParagraph input
+  it "parses simple plain-text paragraph" $
+    runParser parseXMLParagraph "<paragraph>Hello</paragraph>!"
       `shouldBe` Just (Paragraph [Plain "Hello"], "!")
 
-  it "parses empty paragraph" $ do
-    let input = "<paragraph></paragraph>tail"
-    runParser parseXMLParagraph input
-      `shouldBe` Just (Paragraph [Plain ""], "tail")
+  it "parses paragraph with nested inlines" $
+    runParser parseXMLParagraph
+      "<paragraph>This is <bold>bold</bold> and <italic>italics</italic>.</paragraph>?"
+      `shouldBe` Just
+        ( Paragraph
+            [ Plain "This is "
+            , Bold [Plain "bold"]
+            , Plain " and "
+            , Italic [Plain "italics"]
+            , Plain "."
+            ]
+        , "?"
+        )

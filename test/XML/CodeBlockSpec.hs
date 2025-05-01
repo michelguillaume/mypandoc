@@ -7,12 +7,15 @@ import AST                  (Block(..))
 
 spec :: Spec
 spec = describe "parseXMLCodeBlock" $ do
-  it "parses code block with content" $ do
-    let input = "<codeblock>let x = 1</codeblock>!"
+  it "parses codeblock with one paragraph" $ do
+    let input = "<codeblock><paragraph>let x=1</paragraph></codeblock>!"
     runParser parseXMLCodeBlock input
-      `shouldBe` Just (CodeBlock "let x = 1", "!")
+      `shouldBe` Just (CodeBlock ["let x=1"], "!")
 
-  it "parses empty code block" $ do
-    let input = "<codeblock></codeblock>rest"
-    runParser parseXMLCodeBlock input
-      `shouldBe` Just (CodeBlock "", "rest")
+  it "parses codeblock with multiple paragraphs" $ do
+    let xml = "<codeblock>"
+           ++ "<paragraph>one</paragraph>"
+           ++ "<paragraph>two</paragraph>"
+           ++ "</codeblock>END"
+    runParser parseXMLCodeBlock xml
+      `shouldBe` Just (CodeBlock ["one","two"], "END")

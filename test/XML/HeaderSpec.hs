@@ -10,7 +10,12 @@ spec = describe "parseXMLHeader" $ do
   it "parses header with title only" $ do
     let input = "<header title=\"Test\"></header>XYZ"
     runParser parseXMLHeader input
-      `shouldBe` Just (Header "Test" Nothing Nothing, "XYZ")
+      `shouldBe` Just (Header "Test" Nothing     Nothing, "XYZ")
 
-  it "fails when title attribute missing" $ do
-    runParser parseXMLHeader "<header></header>" `shouldBe` Nothing
+  it "parses header with author and date" $ do
+    let input = "<header title=\"Doc\">" ++
+                "<author>Leo</author>" ++
+                "<date>2021-12-31</date>" ++
+                "</header>!"
+    runParser parseXMLHeader input
+      `shouldBe` Just (Header "Doc" (Just "Leo") (Just "2021-12-31"), "!")

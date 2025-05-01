@@ -1,17 +1,19 @@
 module XML.DocumentSpec (spec) where
 
 import Test.Hspec
-import Parser.Core         (runParser)
-import Parser.XML          (parseXMLDocument)
-import AST                  (Document(..), Header(..), Block(..), Inline(..))
+import Parser.Core        (runParser)
+import Parser.XML         (parseXMLDocument)
+import AST                 (Document(..), Header(..), Block(..), Inline(..))
 
 spec :: Spec
 spec = describe "parseXMLDocument" $ do
-  it "parses complete minimal document" $ do
-    let input = concat
+  it "parses a minimal document" $ do
+    let xml = concat
           [ "<document>"
-          , "<header title=\"Doc\"></header>"
-          , "<body><paragraph>X</paragraph></body>"
-          , "</document>~" ]
-        expected = Document (Header "Doc" Nothing Nothing) [Paragraph [Plain "X"]]
-    runParser parseXMLDocument input `shouldBe` Just (expected, "~")
+          , "<header title=\"D\"></header>"
+          , "<body><paragraph>A</paragraph></body>"
+          , "</document>!"
+          ]
+        expected = Document (Header "D" Nothing Nothing) [Paragraph [Plain "A"]]
+    runParser parseXMLDocument xml
+      `shouldBe` Just (expected, "!")
