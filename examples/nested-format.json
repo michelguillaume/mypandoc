@@ -6,7 +6,12 @@
         [
             "Du ",
             {
-                "italic": "texte mixte"
+                "italic": [
+                    "texte ",
+                    {
+                        "bold": "mixte"
+                    }
+                ]
             },
             " ici."
         ]

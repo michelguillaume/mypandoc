@@ -48,16 +48,26 @@ blockValue = \case
           ])
       ]
 
+isPlain :: Inline -> Bool
+isPlain (Plain _) = True
+isPlain _         = False
+
 inlineValue :: Inline -> JValue
 inlineValue = \case
   Plain s ->
     JString s
 
-  Bold xs ->
-    JObject [("bold",   JString (concatMap inlineText xs))]
+  Bold xs
+    | all isPlain xs ->
+        JObject [("bold", JString (concatMap inlineText xs))]
+    | otherwise      ->
+        JObject [("bold", JArray (map inlineValue xs))]
 
-  Italic xs ->
-    JObject [("italic", JString (concatMap inlineText xs))]
+  Italic xs
+    | all isPlain xs ->
+        JObject [("italic", JString (concatMap inlineText xs))]
+    | otherwise      ->
+        JObject [("italic", JArray (map inlineValue xs))]
 
   CodeSpan s ->
     JObject [("code",   JString s)]

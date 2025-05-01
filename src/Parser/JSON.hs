@@ -123,8 +123,16 @@ convertInline = \case
   JObject [("bold", JString s)] ->
     return (Bold [Plain s])
 
+  JObject [("bold", JArray xs)] -> do
+    inls <- mapM convertInline xs
+    return (Bold inls)
+
   JObject [("italic", JString s)] ->
     return (Italic [Plain s])
+    
+  JObject [("italic", JArray xs)] -> do
+    inls <- mapM convertInline xs
+    return (Italic inls)
 
   JObject [("code", JString s)] ->
     return (CodeSpan s)
