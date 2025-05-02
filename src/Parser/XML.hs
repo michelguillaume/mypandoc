@@ -32,16 +32,40 @@ parseXMLDocument = spaces *> lexeme (string "<document>") *> do
 
 -- | Parse XML <header> with attributes and optional author/date children
 parseXMLHeader :: Parser Header
-parseXMLHeader = lexeme (string "<header") *> do
+parseXMLHeader = do
+  attrs <- parseHeaderAttrs
+  auth  <- parseXMLAuthor
+  date  <- parseXMLDate
+  _     <- lexeme (string "</header>")
+  return (Header (haTitle attrs) auth date)
+
+-- | Helper: parse header opening and title attribute
+parseHeaderAttrs :: Parser HeaderAttrs
+parseHeaderAttrs = do
+  _     <- lexeme (string "<header")
   _     <- spaces
   title <- attribute "title"
   _     <- lexeme (string ">")
-  auth  <- optional (spaces *> string "<author>" *> many (satisfy (/= '<')) <* string "</author>")
-  date  <- optional (spaces *> string "<date>"   *> many (satisfy (/= '<')) <* string "</date>")
-  _ <- lexeme (string "</header>")
-  return (Header title auth date)
-  where
-    attribute name = string (name ++ "=\"") *> many (satisfy (/= '"')) <* char '"'
+  return (HeaderAttrs title)
+
+-- | Parse optional <author> element
+parseXMLAuthor :: Parser (Maybe String)
+parseXMLAuthor = optional (
+  spaces *> string "<author>" *> many (satisfy (/= '<')) <* string "</author>"
+  )
+
+-- | Parse optional <date> element
+parseXMLDate :: Parser (Maybe String)
+parseXMLDate = optional (
+  spaces *> string "<date>" *> many (satisfy (/= '<')) <* string "</date>"
+  )
+
+-- | Temporary type to hold header attributes
+newtype HeaderAttrs = HeaderAttrs { haTitle :: String }
+
+-- | Helper to parse an attribute value by name
+attribute :: String -> Parser String
+attribute name = string (name ++ "=\"") *> many (satisfy (/= '"')) <* char '"'
 
 -- | Parse XML <body> ... </body>
 parseXMLBody :: Parser [Block]

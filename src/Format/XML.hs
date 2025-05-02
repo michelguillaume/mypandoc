@@ -39,31 +39,42 @@ renderBody lvl blocks =
 
 -- | Render any Block
 renderBlock :: Int -> Block -> String
-renderBlock lvl blk =
-  case blk of
+renderBlock lvl blk = case blk of
+  Paragraph inls     -> renderParagraph lvl inls
+  CodeBlock codes    -> renderCodeBlock lvl codes
+  List items         -> renderList lvl items
+  Section title subs -> renderSection lvl title subs
 
-    Paragraph inls ->
-      indent lvl ("<paragraph>" ++ concatMap renderInline inls ++ "</paragraph>\n")
+-- | Paragraph
+renderParagraph :: Int -> [Inline] -> String
+renderParagraph lvl inls =
+  indent lvl ("<paragraph>" ++ concatMap renderInline inls ++ "</paragraph>\n")
 
-    CodeBlock codes ->
-        indent lvl "<codeblock>\n"
-        ++ concatMap
-        (\c -> indent (lvl+1) ("<paragraph>" ++ c ++ "</paragraph>\n"))
-        codes
-        ++ indent lvl "</codeblock>\n"
+-- | CodeBlock
+renderCodeBlock :: Int -> [String] -> String
+renderCodeBlock lvl codes =
+     indent lvl "<codeblock>\n"
+  ++ concatMap
+       (\c -> indent (lvl+1) ("<paragraph>"++c++"</paragraph>\n"))
+       codes
+  ++ indent lvl "</codeblock>\n"
 
-    List items ->
-        indent lvl "<list>\n"
-        ++ concatMap
-        (\inls -> indent (lvl+1)
-        ("<paragraph>" ++ concatMap renderInline inls ++ "</paragraph>\n"))
-        items
-        ++ indent lvl "</list>\n"
+-- | List
+renderList :: Int -> [[Inline]] -> String
+renderList lvl items =
+     indent lvl "<list>\n"
+  ++ concatMap
+       (\inls -> indent (lvl+1)
+         ("<paragraph>"++concatMap renderInline inls++"</paragraph>\n"))
+       items
+  ++ indent lvl "</list>\n"
 
-    Section title bs ->
-        indent lvl ("<section title=\"" ++ title ++ "\">\n")
-        ++ concatMap (renderBlock (lvl+1)) bs
-        ++ indent lvl "</section>\n"
+-- | Section
+renderSection :: Int -> String -> [Block] -> String
+renderSection lvl title bs =
+     indent lvl ("<section title=\""++title++"\">\n")
+  ++ concatMap (renderBlock (lvl+1)) bs
+  ++ indent lvl "</section>\n"
 
 -- | Render inline content inside a paragraph
 renderInline :: Inline -> String

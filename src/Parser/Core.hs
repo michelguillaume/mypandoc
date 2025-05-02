@@ -2,10 +2,9 @@
 -- EPITECH PROJECT, 2025
 -- Haskell
 -- File description:
--- main
+-- Core parser combinators
 -}
 
-{-# LANGUAGE LambdaCase #-}
 module Parser.Core
   ( Parser
   , runParser
@@ -59,9 +58,9 @@ instance MonadFail Parser where
 
 -- | Basic combinators
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy pred = Parser $ \case
+satisfy pred = Parser $ \s -> case s of
   (c:cs) | pred c -> Just (c, cs)
-  _                -> Nothing
+  _               -> Nothing
 
 char :: Char -> Parser Char
 char = satisfy . (==)

@@ -5,7 +5,6 @@
 -- main
 -}
 
-{-# LANGUAGE LambdaCase #-}
 module Parser.Markdown (parseMarkdownDocument) where
 
 import           Parser.Core
@@ -41,50 +40,45 @@ data RawBlock
   | RHeading  Int String
   deriving Show
 
+-- Top-level parsers for RawBlock variants
 parseRawBlock :: Parser RawBlock
 parseRawBlock = choice
-  [ parseHeading
-  , parseCodeFence
-  , parseList
-  , parseParagraph
+  [ parseHeadingBlock
+  , parseCodeFenceBlock
+  , parseListBlock
+  , parseParagraphBlock
   ]
- where
-  -- # Heading
-  parseHeading :: Parser RawBlock
-  parseHeading = do
-    hs <- some (char '#')
-    _  <- char ' '
-    t  <- manyTill anyChar endOfLine
-    return (RHeading (length hs) t)
 
-  -- ``` code fence ```
-  parseCodeFence :: Parser RawBlock
-  parseCodeFence = do
-    _    <- string "```" *> endOfLine
-    body <- manyTill (manyTill anyChar endOfLine)
-                     (string "```" *> endOfLine)
-    return (RCodeBlock body)
+parseHeadingBlock :: Parser RawBlock
+parseHeadingBlock = do
+  hs <- some (char '#')
+  _  <- char ' '
+  t  <- manyTill anyChar endOfLine
+  return (RHeading (length hs) t)
 
-  -- - list items (one line each)
-  parseList :: Parser RawBlock
-  parseList = do
-    items <- some $ do
-      _   <- char '-' *> char ' '
-      inl <- manyTill parseInline endOfLine
-      return inl
-    return (RList items)
+parseCodeFenceBlock :: Parser RawBlock
+parseCodeFenceBlock = do
+  _    <- string "```" *> endOfLine
+  body <- manyTill (manyTill anyChar endOfLine)
+                   (string "```" *> endOfLine)
+  return (RCodeBlock body)
 
-  -- paragraph = single non-empty line
-  parseParagraph :: Parser RawBlock
-  parseParagraph = do
-    line <- manyTill anyChar endOfLine
-    if all isSpace line
-      then fail "blank line"
-      else
-        let inls = case runParser inlineParser line of
-                     Just (xs, _) -> xs
-                     Nothing      -> [Plain line]
-        in return (RParagraph inls)
+parseListBlock :: Parser RawBlock
+parseListBlock = do
+  items <- some $ do
+    _ <- char '-' *> char ' '
+    manyTill parseInline endOfLine
+  return (RList items)
+
+parseParagraphBlock :: Parser RawBlock
+parseParagraphBlock = do
+  line <- manyTill anyChar endOfLine
+  if all isSpace line
+    then fail "blank line"
+    else let inls = case runParser inlineParser line of
+                      Just (xs, _) -> xs
+                      Nothing      -> [Plain line]
+         in return (RParagraph inls)
 
 -- 2) BUILD A ROSE TREE BY HEADING LEVEL
 
@@ -93,31 +87,31 @@ data Tree
   | Branch String [Tree]
   deriving Show
 
--- buildTree lvl rawBlocks = (forest, leftovers)
+-- Entry to build tree
 buildTree :: Int -> [RawBlock] -> ([Tree], [RawBlock])
-buildTree _ [] = ([], [])
-buildTree lvl bs@(b:bs') = case b of
+buildTree = collect
 
-  RHeading lev title
-    | lev > lvl ->
-      -- collect children under this heading
-      let (children, rest1)  = buildTree lev bs'
-          sectionNode        = Branch title children
-          -- if skipping levels, wrap in anonymous section
-          branchNode
-            | lev == lvl + 1 = sectionNode
-            | otherwise      = Branch "" [sectionNode]
-          (siblings, rest2)  = buildTree lvl rest1
-      in (branchNode : siblings, rest2)
-
-    | otherwise ->
-      -- this heading belongs to an outer level: stop here
-      ([], bs)
-
-  _ ->
-    -- non-heading => leaf, keep going
-    let (siblings, rest) = buildTree lvl bs'
+-- Collect siblings and leftovers at a given level
+collect :: Int -> [RawBlock] -> ([Tree], [RawBlock])
+collect _ [] = ([], [])
+collect lvl (b:bs) = case b of
+  RHeading lev title | lev > lvl ->
+    let (node, rest1)     = makeBranch lvl lev title bs
+        (siblings, rest2) = collect lvl rest1
+    in (node : siblings, rest2)
+  RHeading _ _ -> ([], b:bs)
+  _            ->
+    let (siblings, rest) = collect lvl bs
     in (Leaf b : siblings, rest)
+
+-- Build a single section node and return leftovers
+makeBranch :: Int -> Int -> String -> [RawBlock] -> (Tree, [RawBlock])
+makeBranch lvl lev title bs =
+  let (children, rest) = collect lev bs
+      node = if lev == lvl + 1
+             then Branch title children
+             else Branch "" [Branch title children]
+  in (node, rest)
 
 -- 3) FLATTEN THE TREE INTO REAL AST.Block
 
