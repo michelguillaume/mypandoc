@@ -10,6 +10,7 @@ import Data.Maybe         (fromMaybe)
 import Parser.Core        (runParser)
 import Parser.XML         (parseXMLDocument)
 import Parser.JSON        (parseJSONDocument)
+import Parser.Markdown    (parseMarkdownDocument)
 import Format.JSON        (renderJSON)
 import Format.XML         (renderXML)
 
@@ -76,6 +77,7 @@ main = do
   let resultDoc = case ifmt of
         "xml"  -> runParser parseXMLDocument input
         "json" -> runParser parseJSONDocument input
+        "markdown"   -> runParser parseMarkdownDocument input
         _      -> Nothing
 
   doc <- case resultDoc of
