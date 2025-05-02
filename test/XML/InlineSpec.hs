@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2025
+-- Haskell
+-- File description:
+-- main
+-}
+
 module XML.InlineSpec (spec) where
 
 import Test.Hspec

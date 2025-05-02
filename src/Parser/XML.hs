@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2025
+-- Haskell
+-- File description:
+-- main
+-}
+
 module Parser.XML
   ( parseXMLDocument,
     parseXMLHeader,
@@ -38,7 +45,8 @@ parseXMLHeader = lexeme (string "<header") *> do
 
 -- | Parse XML <body> ... </body>
 parseXMLBody :: Parser [Block]
-parseXMLBody = lexeme (string "<body>") *> many parseXMLBlock <* lexeme (string "</body>")
+parseXMLBody = lexeme (string "<body>") *>
+    many parseXMLBlock <* lexeme (string "</body>")
 
 -- | Parse any block inside body
 parseXMLBlock :: Parser Block
@@ -134,7 +142,8 @@ parseXMLCodeBlock = do
 parseXMLList :: Parser Block
 parseXMLList = do
   _   <- lexeme (string "<list")
-  _   <- optional (spaces *> string "type=\"" *> many (satisfy (/= '"')) <* char '"')
+  _   <- optional (spaces *> string "type=\"" *>
+    many (satisfy (/= '"')) <* char '"')
   _   <- lexeme (string ">")
   ps  <- many parseXMLParagraph
   _   <- lexeme (string "</list>")

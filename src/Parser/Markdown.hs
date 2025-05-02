@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2025
+-- Haskell
+-- File description:
+-- main
+-}
+
 {-# LANGUAGE LambdaCase #-}
 module Parser.Markdown (parseMarkdownDocument) where
 

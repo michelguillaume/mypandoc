@@ -1,0 +1,17 @@
+./.idea/shelf/Uncommitted_changes_before_Update_at_5_2_25_8_18_PM_[Changes]/mypandoc:1: MAJOR:C-O1
+./.stack-work/install/x86_64-linux-tinfo6/ec53521776a0fc3e001370c3fda401cb670177e96451c2db0659145f6862e0e4/9.8.4/bin/mypandoc:1: MAJOR:C-O1
+./.stack-work/install/x86_64-linux-tinfo6/ec53521776a0fc3e001370c3fda401cb670177e96451c2db0659145f6862e0e4/9.8.4/lib/x86_64-linux-ghc-9.8.4/libHSmypandoc-0.1.0.0-Idxmzlo1tP1JGPproms6xB-ghc9.8.4.so:1: MAJOR:C-O1
+./.stack-work/install/x86_64-linux-tinfo6/ec53521776a0fc3e001370c3fda401cb670177e96451c2db0659145f6862e0e4/9.8.4/lib/x86_64-linux-ghc-9.8.4/mypandoc-0.1.0.0-Idxmzlo1tP1JGPproms6xB/libHSmypandoc-0.1.0.0-Idxmzlo1tP1JGPproms6xB.a:1: MAJOR:C-O1
+./mypandoc:1: MAJOR:C-O1
+./app/Main.hs:30: MINOR:H-F3 # too long line
+./app/Main.hs:59: MINOR:H-F4 # too long function
+./src/Format/JSON.hs contains forbidden extensions
+./src/Format/XML.hs:43: MINOR:H-F4 # too long function
+./src/Format/XML.hs:46: MINOR:H-F3 # too long line
+./src/Parser/Core.hs contains forbidden extensions
+./src/Parser/JSON.hs contains forbidden extensions
+./src/Parser/XML.hs:39: MINOR:H-F3 # too long line
+./src/Parser/XML.hs:40: MINOR:H-F3 # too long line
+./src/Parser/XML.hs:44: MINOR:H-F3 # too long line
+./src/Parser/Markdown.hs:53: MINOR:H-F4 # too long function
+./src/Parser/Markdown.hs:102: MINOR:H-F4 # too long function

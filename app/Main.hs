@@ -1,4 +1,10 @@
--- app/Main.hs
+{-
+-- EPITECH PROJECT, 2025
+-- Haskell
+-- File description:
+-- main
+-}
+
 module Main (main) where
 
 import System.Environment (getArgs)
@@ -68,7 +74,7 @@ main = do
 
   let supported = ["xml","json","markdown"]
   if ifmt `notElem` supported || ofmt `notElem` supported
-    then hPutStrLn stderr ("Error: unsupported format (xml, json, markdown)") 
+    then hPutStrLn stderr ("Error: unsupported format (xml, json, markdown)")
          >> exitWith (ExitFailure 84)
     else return ()
 

@@ -1,3 +1,10 @@
+{-
+-- EPITECH PROJECT, 2025
+-- Haskell
+-- File description:
+-- main
+-}
+
 module Format.XML (renderXML) where
 
 import AST (Document(..), Header(..), Block(..), Inline(..))
