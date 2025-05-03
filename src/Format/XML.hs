@@ -2,7 +2,7 @@
 -- EPITECH PROJECT, 2025
 -- Haskell
 -- File description:
--- main
+-- XML renderer
 -}
 
 module Format.XML (renderXML) where

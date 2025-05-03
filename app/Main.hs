@@ -21,6 +21,7 @@ import Parser.JSON        (parseJSONDocument)
 import Parser.Markdown    (parseMarkdownDocument)
 import Format.JSON        (renderJSON)
 import Format.XML         (renderXML)
+import Format.Markdown    (renderMarkdown)
 
 -- Usage header (<=10 lines)
 usageHeader :: [String]
@@ -160,6 +161,7 @@ renderDoc fmt doc =
   case fmt of
     "json" -> renderJSON doc
     "xml"  -> renderXML doc
+    "markdown" -> renderMarkdown doc
     _       -> error "unreachable"
 
 -- Write to file or stdout

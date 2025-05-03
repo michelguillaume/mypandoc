@@ -2,7 +2,7 @@
 -- EPITECH PROJECT, 2025
 -- Haskell
 -- File description:
--- JSON formatter
+-- JSON renderer
 -}
 
 module Format.JSON (renderJSON) where
