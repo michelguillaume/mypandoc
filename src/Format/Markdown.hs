@@ -14,9 +14,10 @@ import Data.Maybe (maybeToList)
 -- | Render an entire Document as Markdown, with trailing newline
 renderMarkdown :: Document -> String
 renderMarkdown (Document hdr body) =
-  renderFrontMatter hdr
-  ++ renderBlocks 0 body
-  ++ "\n"
+  let front    = renderFrontMatter hdr
+      bodyText = renderBlocks 0 body
+      trailing = if null body then "" else "\n"
+  in front ++ bodyText ++ trailing
 
 -- | YAML front-matter
 renderFrontMatter :: Header -> String
