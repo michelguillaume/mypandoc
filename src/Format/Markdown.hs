@@ -11,15 +11,16 @@ import Data.List (intercalate)
 import AST (Document(..), Header(..), Block(..), Inline(..))
 import Data.Maybe (maybeToList)
 
--- | Render an entire Document as Markdown, with trailing newline
+-- | Render an entire Document as Markdown
 renderMarkdown :: Document -> String
 renderMarkdown (Document hdr body) =
-  let front    = renderFrontMatter hdr
-      bodyText = renderBlocks 0 body
-      trailing = if null body then "" else "\n"
-  in front ++ bodyText ++ trailing
+  let front     = renderFrontMatter hdr
+      spacer    = if null body then "" else "\n"
+      bodyText  = renderBlocks 0 body
+      trailing  = if null body then "" else "\n"
+  in front ++ spacer ++ bodyText ++ trailing
 
--- | YAML front-matter
+-- | YAML front-matter without trailing blank
 renderFrontMatter :: Header -> String
 renderFrontMatter (Header title mAuth mDate) =
   unlines $
@@ -28,13 +29,13 @@ renderFrontMatter (Header title mAuth mDate) =
     ]
     ++ [ "author: " ++ a | a <- maybeToList mAuth ]
     ++ [ "date: "   ++ d | d <- maybeToList mDate ]
-    ++ [ "---", "" ]
+    ++ [ "---" ]
 
 -- | Render a sequence of blocks with lookahead on consecutive blocks
 renderBlocks :: Int -> [Block] -> String
 renderBlocks _   []        = ""
 renderBlocks lvl [b]       = renderBlock lvl b
-renderBlocks lvl (b1:b2:bs) =
+renderBlocks lvl (b1:b2:bs)=
   renderBlock lvl b1
   ++ sepBetween b1 b2
   ++ renderBlocks lvl (b2:bs)
@@ -59,9 +60,9 @@ sepBetween (Paragraph inls) next
       case next of
         Paragraph inls2 | any isMediaInline inls2 -> "\n"
         _                                          -> "\n\n"
-sepBetween (CodeBlock _)      _               = "\n"
-sepBetween (List _)           _               = "\n\n"
-sepBetween _                  _               = "\n\n"
+sepBetween (CodeBlock _)      _ = "\n"
+sepBetween (List _)           _ = "\n\n"
+sepBetween _                  _ = "\n\n"
 
 -- | Detect if inline is a media (link or image)
 isMediaInline :: Inline -> Bool
