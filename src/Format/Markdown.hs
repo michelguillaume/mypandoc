@@ -16,7 +16,7 @@ renderMarkdown :: Document -> String
 renderMarkdown (Document hdr body) =
   renderFrontMatter hdr
   ++ renderBlocks 0 body
-  ++ "\n"  -- assure un saut de ligne final
+  ++ "\n"
 
 -- | YAML front-matter
 renderFrontMatter :: Header -> String
