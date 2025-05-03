@@ -17,7 +17,7 @@ renderMarkdown (Document hdr body) =
   let front     = renderFrontMatter hdr
       spacer    = if null body then "" else "\n"
       bodyText  = renderBlocks 0 body
-      trailing  = if null body then "" else "\n"
+      trailing  = if null body then "\n" else "\n\n"
   in front ++ spacer ++ bodyText ++ trailing
 
 -- | YAML front-matter without trailing blank
