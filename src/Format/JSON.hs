@@ -2,7 +2,7 @@
 -- EPITECH PROJECT, 2025
 -- Haskell
 -- File description:
--- JSON renderer
+-- JSON formatter
 -}
 
 module Format.JSON (renderJSON) where
@@ -10,7 +10,7 @@ module Format.JSON (renderJSON) where
 import AST
 import Data.List (intercalate)
 
--- JSON AST
+-- | A tiny JSON AST
 data JValue
   = JObject [(String, JValue)]
   | JArray  [JValue]
@@ -21,119 +21,108 @@ renderJSON :: Document -> String
 renderJSON doc =
   renderValue 0 (JObject
     [ ("header", headerValue (docHeader doc))
-    , ("body"  , JArray  (map blockValue (docBody doc)))
+    , ("body"  , JArray (map blockValue (docBody doc)))
     ])
 
--- | Convert Header to JValue
+-- | Header → JObject
 headerValue :: Header -> JValue
-headerValue (Header title mAuth mDate) = JObject
-  ([ ("title", JString title) ]
+headerValue (Header title mAuth mDate) =
+  JObject $
+     [ ("title", JString title) ]
   ++ maybe [] (\a -> [("author", JString a)]) mAuth
-  ++ maybe [] (\d -> [("date"  , JString d)]) mDate
-  )
+  ++ maybe [] (\d -> [("date",   JString d)]) mDate
 
--- | Convert Block to JValue
-type BlockValue = Block -> JValue
-blockValue :: BlockValue
-blockValue (Paragraph inls)  = paragraphValue inls
-blockValue (CodeBlock cs)    = codeBlockValue cs
-blockValue (List items)      = listValue items
-blockValue (Section t bs)    = sectionValue t bs
+-- | Block → JValue
+blockValue :: Block -> JValue
+blockValue (Paragraph inls) =
+  JArray (map inlineValue inls)
 
--- Paragraph to JValue
-paragraphValue :: [Inline] -> JValue
-paragraphValue inls = JArray (map inlineValue inls)
+blockValue (Section t bs) =
+  JObject [("section", JObject
+    [ ("title"  , JString t)
+    , ("content", JArray (map blockValue bs))
+    ])]
 
--- CodeBlock to JValue
-codeBlockValue :: [String] -> JValue
-codeBlockValue cs = JObject [("codeblock", JArray (map JString cs))]
+blockValue (CodeBlock bs) =
+  -- chaque Block devient un élément à l’intérieur de codeblock
+  JObject [("codeblock", JArray (map blockValue bs))]
 
--- List to JValue
-listValue :: [[Inline]] -> JValue
-listValue items = JObject [("list", JArray
-  [ JArray (map (JString . inlineText) ins)
-  | ins <- items
-  ])]
+blockValue (Raw s) =
+  JString s
 
--- Section to JValue
-sectionValue :: String -> [Block] -> JValue
-sectionValue t bs = JObject [("section", JObject
-  [ ("title",   JString t)
-  , ("content", JArray (map blockValue bs))
-  ])]
+blockValue (List items) =
+  JObject [("list", JArray (concatMap flatten items))]
+  where
+    flatten :: [Block] -> [JValue]
+    flatten [b]  = [blockValue b]
+    flatten blks = map blockValue blks
 
--- | Convert Inline to JValue
+-- | Inline → JValue
 inlineValue :: Inline -> JValue
-inlineValue (Plain s)     = JString s
-inlineValue (Bold xs)
-  | all isPlain xs = JObject [("bold", JString (concatMap inlineText xs))]
-  | otherwise = JObject [("bold", JArray  (map inlineValue xs))]
-inlineValue (Italic xs)
-  | all isPlain xs = JObject [("italic", JString (concatMap inlineText xs))]
-  | otherwise = JObject [("italic", JArray  (map inlineValue xs))]
-inlineValue (CodeSpan s)  = JObject [("code",   JString s)]
-inlineValue (Link u xs)   = JObject [("link", JObject
-  [ ("url",     JString u)
-  , ("content", JArray (map (JString . inlineText) xs))
-  ])]
-inlineValue (Image u xs)  = JObject [("image", JObject
-  [ ("url", JString u)
-  , ("alt", JArray (map (JString . inlineText) xs))
-  ])]
+inlineValue (Plain s) =
+  JString s
+inlineValue (Bold xs) =
+  case xs of
+    [Plain s] -> JObject [("bold", JString s)]
+    _         -> JObject [("bold", JArray (map inlineValue xs))]
+inlineValue (Italic xs) =
+  case xs of
+    [Plain s] -> JObject [("italic", JString s)]
+    _         -> JObject [("italic", JArray (map inlineValue xs))]
+inlineValue (CodeSpan s) =
+  JObject [("code", JString s)]
+inlineValue (Link url xs) =
+  JObject [("link", JObject
+    [ ("url"    , JString url)
+    , ("content", JArray (map inlineValue xs))
+    ])]
+inlineValue (Image url xs) =
+  JObject [("image", JObject
+    [ ("url", JString url)
+    , ("alt"    , JArray (map inlineValue xs))
+    ])]
 
--- | Check if Inline is plain text only
-isPlain :: Inline -> Bool
-isPlain (Plain _) = True
-isPlain _         = False
-
--- | Extract text from Inline
-inlineText :: Inline -> String
-inlineText (Plain s)    = s
-inlineText (Bold xs)    = concatMap inlineText xs
-inlineText (Italic xs)  = concatMap inlineText xs
-inlineText (CodeSpan s) = s
-inlineText (Link _ xs)  = concatMap inlineText xs
-inlineText (Image _ xs) = concatMap inlineText xs
-
--- | Render JValue with indentation
+-- | Render any JValue with indentation
 renderValue :: Int -> JValue -> String
-renderValue ind val = case val of
-  JArray []    -> renderEmptyArray
-  JString s    -> renderString s
-  JArray xs    -> renderArray ind xs
-  JObject kvs  -> renderObject ind kvs
+renderValue ind (JString s) =
+  "\"" ++ escape s ++ "\""
+renderValue ind (JArray xs) =
+  renderArray ind xs
+renderValue ind (JObject kvs) =
+  renderObject ind kvs
 
--- | Empty JSON array
-renderEmptyArray :: String
-renderEmptyArray = "[]"
-
--- | JSON string literal
-renderString :: String -> String
-renderString s = "\"" ++ escape s ++ "\""
-
--- | Render JSON array with indentation
+-- | Render a JSON array with pretty indentation
 renderArray :: Int -> [JValue] -> String
-renderArray ind xs = "[\n"
+renderArray _   [] = "[]"
+renderArray ind xs =
+  "[\n"
   ++ intercalate ",\n"
-       [ spaces (ind+4) ++ renderValue (ind+4) x | x <- xs ]
+       [ spaces (ind+4) ++ renderValue (ind+4) x
+       | x <- xs
+       ]
   ++ "\n" ++ spaces ind ++ "]"
 
--- | Render JSON object with indentation
+-- | Render a JSON object with pretty indentation
 renderObject :: Int -> [(String,JValue)] -> String
-renderObject ind kvs = "{\n"
+renderObject _   []  = "{}"
+renderObject ind kvs =
+  "{\n"
   ++ intercalate ",\n"
-       [ spaces (ind+4) ++ "\"" ++ k ++ "\": " ++ renderValue (ind+4) v
-       | (k,v) <- kvs ]
+       [ spaces (ind+4) ++ "\"" ++ escape k ++ "\": " ++ renderValue (ind+4) v
+       | (k,v) <- kvs
+       ]
   ++ "\n" ++ spaces ind ++ "}"
 
--- | Escape JSON strings
+-- | Escape common JSON characters, including newline and tab
 escape :: String -> String
-escape = concatMap esc
+escape = concatMap escapeChar
   where
-    esc '"'  = "\\\""
-    esc '\\' = "\\\\"
-    esc c     = [c]
+    escapeChar '"'  = "\\\""
+    escapeChar '\\' = "\\\\"
+    escapeChar '\n' = "\\n"
+    escapeChar '\t' = "\\t"
+    escapeChar x    = [x]
 
--- | Spaces for indentation
+-- | Utility to indent
 spaces :: Int -> String
 spaces n = replicate n ' '

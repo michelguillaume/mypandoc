@@ -134,6 +134,7 @@ process :: FilePath -> String -> String -> Options -> IO ()
 process infile ifmt ofmt opts = do
   content <- readFile infile
   doc     <- parseDoc ifmt content
+--  print doc
   let output = renderDoc ofmt doc
   writeOut opts output
 

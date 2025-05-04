@@ -5,42 +5,41 @@
 -- JSON parser
 -}
 
-module Parser.JSON (
-  parseJSONDocument
-  ) where
+module Parser.JSON (parseJSONDocument) where
 
-import Parser.Core (Parser, lexeme, char, parseQuoted)
-import AST                ( Document(Document)
-                           , Header(Header)
-                           , Block(..)
-                           , Inline(..)
-                           )
-import Control.Applicative  (Alternative(empty), (<|>), many)
+import Parser.Core       (Parser, lexeme, char, parseQuoted)
+import AST               (Document(Document), Header(Header),
+                          Block(..), Inline(..))
+import Control.Applicative ((<|>), many)
 
--- A tiny JSON AST
 data JValue
   = JObject [(String, JValue)]
   | JArray  [JValue]
   | JString String
-  deriving Show
+  deriving (Show)
 
--- | Top-level parser: read a JValue then convert it to Document
+isInlineVal :: JValue -> Bool
+isInlineVal (JString _)             = True
+isInlineVal (JObject [("bold",_)])  = True
+isInlineVal (JObject [("italic",_)])= True
+isInlineVal (JObject [("code",_)])  = True
+isInlineVal (JObject [("link",_)])  = True
+isInlineVal (JObject [("image",_)]) = True
+isInlineVal _                       = False
+
 parseJSONDocument :: Parser Document
-parseJSONDocument = lexeme parseJValue >>= convertDoc
+parseJSONDocument =
+  lexeme parseJValue >>= convertDoc
 
--- | Parse any JSON value (object, array or string)
 parseJValue :: Parser JValue
-parseJValue = lexeme $
-      parseObject
-  <|> parseArray
-  <|> (JString <$> parseQuoted)
+parseJValue = lexeme (parseObject <|> parseArray <|> (JString <$> parseQuoted))
 
 parseObject :: Parser JValue
 parseObject = do
-  _     <- lexeme (char '{')
-  pairs <- sepBy parsePair (lexeme (char ','))
-  _     <- lexeme (char '}')
-  return (JObject pairs)
+  _   <- lexeme (char '{')
+  kvs <- sepBy parsePair (lexeme (char ','))
+  _   <- lexeme (char '}')
+  return (JObject kvs)
 
 parsePair :: Parser (String, JValue)
 parsePair = do
@@ -56,145 +55,151 @@ parseArray = do
   _   <- lexeme (char ']')
   return (JArray vs)
 
--- | Require a nested JSON object by key
-requireObject :: String -> [(String, JValue)] -> Parser [(String, JValue)]
-requireObject key kv = case lookup key kv of
-  Just (JObject o) -> return o
-  _                -> empty
-
--- | Require a JSON string by key
-requireString :: String -> [(String, JValue)] -> Parser String
-requireString key kv = case lookup key kv of
-  Just (JString s) -> return s
-  _                -> empty
-
--- | Optional JSON string by key
-optionalString :: String -> [(String, JValue)] -> Parser (Maybe String)
-optionalString key kv = case lookup key kv of
-  Just (JString s) -> return (Just s)
-  _                -> return Nothing
-
--- | Extract header from JSON key-value list (<=10 lines)
-parseJSONHeader :: [(String, JValue)] -> Parser Header
-parseJSONHeader kv = do
-  hp    <- requireObject "header" kv
-  title <- requireString "title" hp
-  auth  <- optionalString "author" hp
-  date  <- optionalString "date" hp
-  return (Header title auth date)
-
--- | Extract body blocks from JSON key-value list
-parseJSONBody :: [(String, JValue)] -> Parser [Block]
-parseJSONBody kv = do
-  arr <- case lookup "body" kv of
-           Just (JArray xs) -> return xs
-           _                -> empty
-  mapM convertBlock arr
-
--- | Convert a JSON value to a Block
-convertBlock :: JValue -> Parser Block
-convertBlock val = case val of
-  JArray inls                        -> parseParagraphBlockJson inls
-  JObject [("section", JObject sp)] -> parseSectionBlockJson sp
-  JObject [("codeblock", JArray cs)] -> parseCodeBlockJson cs
-  JObject [("list", JArray items)]   -> parseListBlockJson items
-  _                                   -> empty
-
--- Paragraph block from a JSON array
-parseParagraphBlockJson :: [JValue] -> Parser Block
-parseParagraphBlockJson inls =
-  Paragraph <$> mapM convertInline inls
-
--- Section block from a JSON object
-parseSectionBlockJson :: [(String, JValue)] -> Parser Block
-parseSectionBlockJson sp = do
-  title <- requireString "title" sp
-  contentArr <- case lookup "content" sp of
-                  Just (JArray bs) -> return bs
-                  _                -> empty
-  blocks <- mapM convertBlock contentArr
-  return (Section title blocks)
-
--- Code block from a JSON array
-parseCodeBlockJson :: [JValue] -> Parser Block
-parseCodeBlockJson cs = do
-  codes <- for cs (\v -> case v of
-    JString s -> return s
-    _         -> empty)
-  return (CodeBlock codes)
-
--- List block from a JSON array
-parseListBlockJson :: [JValue] -> Parser Block
-parseListBlockJson items = do
-  lists <- for items (\v -> case v of
-    JArray inls -> mapM convertInline inls
-    _           -> empty)
-  return (List lists)
-
--- | Convert the top-level JValue into a Document AST
 convertDoc :: JValue -> Parser Document
-convertDoc val = case val of
-  JObject kv -> do
-    hdr    <- parseJSONHeader kv
-    blocks <- parseJSONBody kv
-    return (Document hdr blocks)
-  _ -> empty
+convertDoc (JObject kv) = Document <$> parseHeader kv <*> parseBody kv
+convertDoc other       = fail $ "Expected top-level obj, got: " ++ show other
 
--- | Parser helpers for Inline conversion
-parsePlainInline :: String -> Parser Inline
-parsePlainInline s = return (Plain s)
+-- Helpers to parse header and body separately
+parseHeader :: [(String,JValue)] -> Parser Header
+parseHeader kv = do
+  hdrVal <- lookupVal "header" kv >>= unwrapObject "\"header\" must be an obj"
+  title  <- lookupStr "title" hdrVal
+  auth   <- lookupOpt "author" hdrVal
+  date   <- lookupOpt "date" hdrVal
+  return $ Header title auth date
 
-parseBoldInline :: [JValue] -> Parser Inline
-parseBoldInline xs = do
-  inls <- mapM convertInline xs
-  return (Bold inls)
+parseBody :: [(String,JValue)] -> Parser [Block]
+parseBody kv = do
+  bodyVal <- lookupVal "body" kv >>= unwrapArray "\"body\" must be an array"
+  mapM convertBlock bodyVal
 
-parseItalicInline :: [JValue] -> Parser Inline
-parseItalicInline xs = do
-  inls <- mapM convertInline xs
-  return (Italic inls)
+-- Unwrapping utilities
+unwrapObject :: String -> JValue -> Parser [(String,JValue)]
+unwrapObject msg (JObject o) = return o
+unwrapObject msg _           = fail msg
 
-parseLinkInline :: [(String, JValue)] -> Parser Inline
-parseLinkInline lp = do
-  url <- requireString "url" lp
-  arr <- case lookup "content" lp of
-           Just (JArray xs) -> return xs
-           _                -> empty
-  inls <- mapM convertInline arr
-  return (Link url inls)
+unwrapArray :: String -> JValue -> Parser [JValue]
+unwrapArray msg (JArray a) = return a
+unwrapArray msg _          = fail msg
 
-parseImageInline :: [(String, JValue)] -> Parser Inline
-parseImageInline ip = do
-  url <- requireString "url" ip
-  arr <- case lookup "alt" ip of
-           Just (JArray xs) -> return xs
-           _                -> empty
-  inls <- mapM convertInline arr
-  return (Image url inls)
+convertBlock :: JValue -> Parser Block
+convertBlock jv = case jv of
+  JString s -> return (Raw s)
+  JArray xs -> Paragraph <$> mapM convertInline xs
+  JObject [(key,val)] -> parseByKey key val
+  JObject kvs -> fail $ "Expected single-key object for Block, got keys: "
+    ++ show (map fst kvs)
+  other -> fail $ "Unexpected JSON value for Block: " ++ show other
 
--- | Convert a JSON value to an Inline
+parseByKey :: String -> JValue -> Parser Block
+parseByKey key val = case key of
+  "section"   -> parseSection val
+  "codeblock" -> parseCodeBlock val
+  "list"      -> parseList val
+  _           -> fail $ "Unknown block type: " ++ show key
+
+parseSection :: JValue -> Parser Block
+parseSection (JObject kv) = do
+  title <- lookupStr "title" kv
+  cVal  <- lookupVal "content" kv
+  xs    <- case cVal of
+             JArray bs -> return bs
+             _         -> fail "\"content\" of section must be an array"
+  subs <- mapM convertBlock xs
+  return (Section title subs)
+
+parseSection other = fail $ "Expected object for section, got: " ++ show other
+
+parseCodeBlock :: JValue -> Parser Block
+parseCodeBlock jv = case jv of
+  JString s -> return $ CodeBlock [Raw s]
+
+  JArray vs -> CodeBlock <$> mapM convertBlock vs
+
+  JObject _ -> (\b -> CodeBlock [b]) <$> convertBlock jv
+
+  _ -> fail $ "Unexpected JSON for codeblock: " ++ show jv
+
+parseList :: JValue -> Parser Block
+parseList (JArray items) = do
+  xss <- mapM parseListItem items
+  return (List xss)
+parseList other =
+  fail $ "Expected array for list, got: " ++ show other
+
+parseListItem :: JValue -> Parser [Block]
+parseListItem jv = case jv of
+  JString s -> return [Raw s]
+  JArray vs | all isInlineVal vs -> do
+    inls <- mapM convertInline vs
+    return [Paragraph inls]
+  JArray vs -> mapM convertBlock vs
+  JObject _ -> (\b -> [b]) <$> convertBlock jv
+  other -> fail $ "Unexpected JSON in list item: " ++ show other
+
+-- Inline parsing split into specialized functions
 convertInline :: JValue -> Parser Inline
-convertInline val = case val of
-  JString s                        -> parsePlainInline s
-  JObject [("bold", JString s)]  -> return (Bold [Plain s])
-  JObject [("bold", JArray xs)]   -> parseBoldInline xs
-  JObject [("italic", JString s)]-> return (Italic [Plain s])
-  JObject [("italic", JArray xs)]-> parseItalicInline xs
-  JObject [("code", JString s)]  -> return (CodeSpan s)
-  JObject [("link", JObject lp) ]-> parseLinkInline lp
-  JObject [("image", JObject ip)]-> parseImageInline ip
-  _                                -> empty
+convertInline jv = case jv of
+  JString s                  -> parsePlain s
+  JObject [("bold",   v)]    -> parseBold v
+  JObject [("italic", v)]    -> parseItalic v
+  JObject [("code",   JString s)] -> return (CodeSpan s)
+  JObject [("link",   lp)]    -> parseLink lp
+  JObject [("image",  ip)]    -> parseImage ip
+  _ -> fail $ "Unknown inline element: " ++ show jv
 
--- | Zero-or-more list separated by sep
+parsePlain :: String -> Parser Inline
+parsePlain = return . Plain
+
+parseBold :: JValue -> Parser Inline
+parseBold (JString s) = return $ Bold [Plain s]
+parseBold (JArray xs) = Bold <$> mapM convertInline xs
+parseBold _           = fail "Invalid bold content"
+
+parseItalic :: JValue -> Parser Inline
+parseItalic (JString s) = return $ Italic [Plain s]
+parseItalic (JArray xs) = Italic <$> mapM convertInline xs
+parseItalic _           = fail "Invalid italic content"
+
+parseLink :: JValue -> Parser Inline
+parseLink (JObject lp) = do
+  url  <- lookupStr "url" lp
+  cVal <- lookupVal "content" lp
+  inls <- case cVal of
+             JArray ys -> return ys
+             _         -> fail "\"content\" of link must be an array"
+  Link url <$> mapM convertInline inls
+parseLink _ = fail "Invalid link object"
+
+parseImage :: JValue -> Parser Inline
+parseImage (JObject ip) = do
+  url  <- lookupStr "url" ip
+  aVal <- lookupVal "alt" ip
+  alts <- case aVal of
+             JArray xs -> return xs
+             _         -> fail "\"alt\" of image must be an array"
+  Image url <$> mapM convertInline alts
+parseImage _ = fail "Invalid image object"
+
+lookupVal :: String -> [(String,JValue)] -> Parser JValue
+lookupVal k kvs = case lookup k kvs of
+  Just v  -> return v
+  Nothing -> fail $ "Missing key \"" ++ k ++ "\"; available: "
+                    ++ show (map fst kvs)
+
+lookupStr :: String -> [(String,JValue)] -> Parser String
+lookupStr k kvs = case lookup k kvs of
+  Just (JString s) -> return s
+  Just _           -> fail $ "Expected string at key \""
+    ++ k ++ "\"; got non-string"
+  Nothing          -> fail $ "Missing key \"" ++ k ++ "\"; available: "
+                             ++ show (map fst kvs)
+
+lookupOpt :: String -> [(String,JValue)] -> Parser (Maybe String)
+lookupOpt k kvs = case lookup k kvs of
+  Just (JString s) -> return (Just s)
+  Just _           -> fail $ "Expected string for optional key \"" ++ k ++ "\""
+  Nothing          -> return Nothing
+
 sepBy :: Parser a -> Parser sep -> Parser [a]
-sepBy p sep =
-      (:) <$> p <*> many (sep *> p)
-  <|> pure []
-
--- | Helper: like mapM but for pure lists
-for :: [a] -> (a -> Parser b) -> Parser [b]
-for []     _ = return []
-for (x:xs) f = do
-  y  <- f x
-  ys <- for xs f
-  return (y:ys)
+sepBy p sep = (:) <$> p <*> many (sep *> p) <|> pure []

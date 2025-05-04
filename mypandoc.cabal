@@ -65,16 +65,9 @@ test-suite mypandoc-test
   other-modules:
       CoreSpec
       IntegrationSpec
-      JSONSpec
-      XML.BodySpec
-      XML.CodeBlockSpec
-      XML.DocumentSpec
-      XML.HeaderSpec
-      XML.InlineSpec
-      XML.ListSpec
-      XML.ParagraphSpec
-      XML.SectionSpec
-      XMLSpec
+      ParserJsonSpec
+      ParserMarkdownSpec
+      ParserXmlSpec
       Paths_mypandoc
   autogen-modules:
       Paths_mypandoc

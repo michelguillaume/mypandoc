@@ -19,7 +19,6 @@ import qualified Data.Text.IO as TIO
 
 spec :: Spec
 spec = describe "CLI end-to-end" $ do
-  -- Découvre tous les .xml dans examples/
   xmlFiles <- runIO $ listDirectory "examples"
   let xmls = filter ((== ".xml") . takeExtension) xmlFiles
 

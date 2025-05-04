@@ -2,7 +2,7 @@
 -- EPITECH PROJECT, 2025
 -- Haskell
 -- File description:
--- main
+-- Main module
 -}
 
 module Lib

@@ -2,10 +2,9 @@
 -- EPITECH PROJECT, 2025
 -- Haskell
 -- File description:
--- main
+-- AST data structure
 -}
 
-{-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module AST where
 
 data Document = Document
@@ -22,16 +21,18 @@ data Header = Header
 
 data Block
   = Paragraph [Inline]
-  | Section String [Block]
-  | CodeBlock [String]
-  | List [[Inline]]
+  | Section   String [Block]
+  | CodeBlock [Block]
+  | List      [[Block]]
+  | Raw       String
   deriving (Show, Eq)
 
+
 data Inline
-  = Plain String
-  | Bold [Inline]
-  | Italic [Inline]
+  = Plain    String
+  | Bold     [Inline]
+  | Italic   [Inline]
   | CodeSpan String
-  | Link String [Inline]
-  | Image String [Inline]
+  | Link     String [Inline]
+  | Image    String [Inline]
   deriving (Show, Eq)

@@ -2,99 +2,120 @@
 -- EPITECH PROJECT, 2025
 -- Haskell
 -- File description:
--- main
+-- XML parser
 -}
 
-module Parser.XML
-  ( parseXMLDocument,
-    parseXMLHeader,
-    parseXMLBody,
-    parseXMLBlock,
-    parseXMLSection,
-    parseXMLCodeBlock,
-    parseXMLList,
-    parseXMLParagraph,
-    parseInline,
-  ) where
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+module Parser.XML (parseXMLDocument) where
 
-import Parser.Core
-import AST
-import Control.Applicative (optional)
-import Prelude hiding (lines)
+import Parser.Core       ( Parser, lexeme, char, string, spaces
+                         , satisfy, many, some, choice )
+import AST               ( Document(..), Header(..), Block(..), Inline(..) )
+import Control.Applicative ( optional)
+import Data.Maybe         ( fromMaybe )
 
--- | Top-level XML Document parser
+-- | Parse a full <document>…</document>
 parseXMLDocument :: Parser Document
 parseXMLDocument = spaces *> lexeme (string "<document>") *> do
-  hdr  <- parseXMLHeader
-  body <- parseXMLBody
-  _ <- lexeme (string "</document>")
-  return (Document hdr body)
+  hdr <- parseXMLHeader
+  bs  <- parseXMLBody
+  _   <- lexeme (string "</document>")
+  return (Document hdr bs)
 
--- | Parse XML <header> with attributes and optional author/date children
+parseHeaderOpen :: Parser String
+parseHeaderOpen =
+  lexeme (string "<header")
+  *> spaces
+  *> attribute "title"
+  <* lexeme (string ">")
+
+parseHeaderAuthor :: Parser (Maybe String)
+parseHeaderAuthor = optional (spaces *> xmlTag "author")
+
+parseHeaderDate :: Parser (Maybe String)
+parseHeaderDate = optional (spaces *> xmlTag "date")
+
+parseHeaderClose :: Parser ()
+parseHeaderClose = lexeme (string "</header>") *> pure ()
+
 parseXMLHeader :: Parser Header
-parseXMLHeader = do
-  attrs <- parseHeaderAttrs
-  auth  <- parseXMLAuthor
-  date  <- parseXMLDate
-  _     <- lexeme (string "</header>")
-  return (Header (haTitle attrs) auth date)
+parseXMLHeader =
+  Header
+    <$> parseHeaderOpen
+    <*> parseHeaderAuthor
+    <*> parseHeaderDate
+    <*  parseHeaderClose
 
--- | Helper: parse header opening and title attribute
-parseHeaderAttrs :: Parser HeaderAttrs
-parseHeaderAttrs = do
-  _     <- lexeme (string "<header")
-  _     <- spaces
-  title <- attribute "title"
-  _     <- lexeme (string ">")
-  return (HeaderAttrs title)
+xmlTag :: String -> Parser String
+xmlTag name =
+  lexeme (string ("<" ++ name ++ ">"))
+  *> many (satisfy (/= '<'))
+  <* lexeme (string ("</" ++ name ++ ">"))
 
--- | Parse optional <author> element
-parseXMLAuthor :: Parser (Maybe String)
-parseXMLAuthor = optional (
-  spaces *> string "<author>" *> many (satisfy (/= '<')) <* string "</author>"
-  )
-
--- | Parse optional <date> element
-parseXMLDate :: Parser (Maybe String)
-parseXMLDate = optional (
-  spaces *> string "<date>" *> many (satisfy (/= '<')) <* string "</date>"
-  )
-
--- | Temporary type to hold header attributes
-newtype HeaderAttrs = HeaderAttrs { haTitle :: String }
-
--- | Helper to parse an attribute value by name
-attribute :: String -> Parser String
-attribute name = string (name ++ "=\"") *> many (satisfy (/= '"')) <* char '"'
-
--- | Parse XML <body> ... </body>
 parseXMLBody :: Parser [Block]
-parseXMLBody = lexeme (string "<body>") *>
-    many parseXMLBlock <* lexeme (string "</body>")
+parseXMLBody =
+  lexeme (string "<body>")
+  *> many parseXMLBlock
+  <* lexeme (string "</body>")
 
--- | Parse any block inside body
 parseXMLBlock :: Parser Block
 parseXMLBlock = lexeme $ choice
   [ parseXMLSection
   , parseXMLCodeBlock
   , parseXMLList
   , parseXMLParagraph
+  , parseXMLRaw
   ]
 
--- | <paragraph>content</paragraph>
 parseXMLParagraph :: Parser Block
 parseXMLParagraph = do
-  _   <- lexeme (string "<paragraph>")
-  inls <- many parseInline
-  _   <- lexeme (string "</paragraph>")
-  return (Paragraph inls)
+  _  <- lexeme (string "<paragraph>")
+  xs <- many parseXMLInline
+  _  <- lexeme (string "</paragraph>")
+  return (Paragraph xs)
 
--- | Inline elements: bold, italic, code, link, image or plain text
-parseInline :: Parser Inline
-parseInline = choice
+parseXMLCodeBlock :: Parser Block
+parseXMLCodeBlock = do
+  _  <- lexeme (string "<codeblock>")
+  bs <- many parseXMLBlock
+  _  <- lexeme (string "</codeblock>")
+  return (CodeBlock bs)
+
+parseXMLList :: Parser Block
+parseXMLList =
+  do
+    _  <- lexeme (string "<list")
+    _  <- optional (spaces *> string "type=\""
+      *> many (satisfy (/= '\"')) <* char '\"')
+    _  <- lexeme (string ">")
+    bs <- many parseXMLBlock
+    _  <- lexeme (string "</list>")
+    let items = [ [b] | b <- bs ]
+    return (List items)
+
+
+parseXMLRaw :: Parser Block
+parseXMLRaw = do
+  s <- many1 (satisfy (/= '<'))
+  return (Raw s)
+  where
+    many1 p = (:) <$> p <*> many p
+
+parseXMLSection :: Parser Block
+parseXMLSection = do
+  _     <- lexeme (string "<section")
+  _     <- spaces
+  t     <- optional (string "title=\"" *> many (satisfy (/= '"')) <* char '"')
+  _     <- lexeme (string ">")
+  bs    <- many parseXMLBlock
+  _     <- lexeme (string "</section>")
+  return (Section (fromMaybe "" t) bs)
+
+parseXMLInline :: Parser Inline
+parseXMLInline = choice
   [ parseBold
   , parseItalic
-  , parseCodeSpan
+  , parseCodeSpanInline
   , parseLink
   , parseImage
   , parsePlain
@@ -105,20 +126,20 @@ parsePlain = Plain <$> some (satisfy (/= '<'))
 
 parseBold :: Parser Inline
 parseBold = do
-  _ <- string "<bold>"
-  xs <- many parseInline
-  _ <- string "</bold>"
+  _  <- string "<bold>"
+  xs <- many parseXMLInline
+  _  <- string "</bold>"
   return (Bold xs)
 
 parseItalic :: Parser Inline
 parseItalic = do
-  _ <- string "<italic>"
-  xs <- many parseInline
-  _ <- string "</italic>"
+  _  <- string "<italic>"
+  xs <- many parseXMLInline
+  _  <- string "</italic>"
   return (Italic xs)
 
-parseCodeSpan :: Parser Inline
-parseCodeSpan = do
+parseCodeSpanInline :: Parser Inline
+parseCodeSpanInline = do
   _ <- string "<code>"
   s <- many (satisfy (/= '<'))
   _ <- string "</code>"
@@ -127,58 +148,21 @@ parseCodeSpan = do
 parseLink :: Parser Inline
 parseLink = do
   _   <- string "<link url=\""
-  url <- many (satisfy (/= '"'))
+  u   <- many (satisfy (/= '"'))
   _   <- string "\">"
-  xs  <- many parseInline
+  xs  <- many parseXMLInline
   _   <- string "</link>"
-  return (Link url xs)
+  return (Link u xs)
 
 parseImage :: Parser Inline
 parseImage = do
   _   <- string "<image url=\""
-  url <- many (satisfy (/= '"'))
+  u   <- many (satisfy (/= '"'))
   _   <- string "\">"
-  xs  <- many parseInline
+  xs  <- many parseXMLInline
   _   <- string "</image>"
-  return (Image url xs)
+  return (Image u xs)
 
--- | <section title="..."> ... </section>
-parseXMLSection :: Parser Block
-parseXMLSection = do
-  _   <- lexeme (string "<section")
-  _   <- spaces
-  title <- optional (string "title=\"" *> many (satisfy (/= '"')) <* char '"')
-  _   <- lexeme (string ">")
-  bs  <- many parseXMLBlock
-  _   <- lexeme (string "</section>")
-  return (Section (maybe "" id title) bs)
-
--- | <codeblock> containing paragraphs
-parseXMLCodeBlock :: Parser Block
-parseXMLCodeBlock = do
-  _   <- lexeme (string "<codeblock>")
-  ps <- many (lexeme parseXMLParagraph)
-  _   <- lexeme (string "</codeblock>")
-  let lines = [concatMap inlineText inls | Paragraph inls <- ps]
-  return (CodeBlock lines)
-
--- | <list> of paragraph items
-parseXMLList :: Parser Block
-parseXMLList = do
-  _   <- lexeme (string "<list")
-  _   <- optional (spaces *> string "type=\"" *>
-    many (satisfy (/= '"')) <* char '"')
-  _   <- lexeme (string ">")
-  ps  <- many parseXMLParagraph
-  _   <- lexeme (string "</list>")
-  let items = [inls | Paragraph inls <- ps]
-  return (List items)
-
--- helper to extract text from Inline
-inlineText :: Inline -> String
-inlineText (Plain s)       = s
-inlineText (Bold xs)       = concatMap inlineText xs
-inlineText (Italic xs)     = concatMap inlineText xs
-inlineText (CodeSpan s)    = s
-inlineText (Link _ xs)     = concatMap inlineText xs
-inlineText (Image _ xs)    = concatMap inlineText xs
+-- | Attribute parser: name="..."
+attribute :: String -> Parser String
+attribute name = string (name ++ "=\"") *> many (satisfy (/= '"')) <* char '"'
