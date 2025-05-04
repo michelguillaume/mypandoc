@@ -14,7 +14,7 @@ renderXML (Document hdr blocks) =
      "<document>\n"
   ++ renderHeader 1 hdr
   ++ renderBody   1 blocks
-  ++ "</document>\n"
+  ++ "</document>"
 
 renderHeader :: Int -> Header -> String
 renderHeader lvl (Header title mA mD) =
